@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Issue Tracking Report - Persistent Image Storage</title>
+    <style>
+        /* --- General & Desktop Styles --- */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        .report-container {
+            max-width: 1400px;
+            margin: auto;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        
+        /* --- Utility Buttons and User Info --- */
+        .utility-bar {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-info {
+            font-size: 0.8em;
+            color: #555;
+        }
+        .export-btn {
+            background-color: #17a2b8;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        .export-btn:hover {
+            background-color: #117a8b;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            color: #007bff;
+            z-index: 1000;
+        }
+
+        /* --- Custom Confirmation Modal --- */
+        .custom-confirm-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .custom-confirm-overlay.show {
+            visibility: visible;
+            opacity: 1;
+        }
+        .custom-confirm-box {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            max-width: 90%;
+            min-width: 300px;
+            text-align: center;
+        }
+        .custom-confirm-box p {
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .custom-confirm-box button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 0 10px;
+        }
+        #confirmYes { background-color: #dc3545; color: white; }
+        #confirmNo { background-color: #f8f9fa; color: #333; border: 1px solid #ccc; }
+
+
+        /* --- Form Styling --- */
+        .log-form {
+            background-color: #e6f7ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #007bff;
+        }
+        .log-form label { display: block; margin-top: 10px; font-weight: bold; color: #007bff; }
+        .log-form input[type="text"], 
+        .log-form input[type="date"], 
+        .log-form select, 
+        .log-form input[type="file"],
+        .log-form textarea { 
+            width: 100%; 
+            padding: 8px; 
+            margin-top: 5px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            box-sizing: border-box; 
+            resize: vertical;
+        }
+        /* Specific height control for the two textareas */
+        .log-form textarea#summary {
+            min-height: 150px; /* Standard height for summary */
+        }
+        .log-form textarea#itReport {
+            min-height: 400px; /* Large height for detailed report */
+        }
+
+        .form-row { display: flex; gap: 20px; margin-bottom: 10px; }
+        .form-group { flex: 1; }
+        .log-form button { background-color: #28a745; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; margin-top: 15px; transition: background-color 0.3s; }
+        .log-form button:hover { background-color: #1e7e34; }
+
+        /* File input specific styles */
+        .file-upload-group { flex-basis: 50%; }
+        .file-upload-group label { margin-top: 0; }
+        .file-upload-group input[type="file"] { margin-top: 5px; border: 1px solid #ccc; }
+        
+        .storage-warning {
+            background-color: #ffe5e5;
+            color: #cc0000;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #cc0000;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        /* --- Filter Panel Styling --- */
+        .filter-panel {
+            background-color: #fff3cd; /* Light warning color */
+            color: #856404;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #ffeeba;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+        }
+        .filter-panel label {
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .filter-panel select, .filter-panel input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .filter-action-group {
+            display: flex;
+            gap: 10px;
+        }
+        .filter-action-group button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.3s;
+        }
+        #filterByReporter {
+            background-color: #007bff;
+            color: white;
+        }
+        #filterByReporter:hover {
+            background-color: #0056b3;
+        }
+
+        /* --- Table Styling --- */
+        .issue-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .issue-table th, .issue-table td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: top; }
+        .issue-table th { background-color: #007bff; color: white; font-weight: bold; text-transform: uppercase; }
+        .issue-table tr:nth-child(even) { background-color: #f9f9f9; }
+        .issue-table tr:hover { background-color: #e9e9e9; }
+
+        /* Status and Priority */
+        .status-open { background-color: #ffc107; color: #333; }
+        .status-in-progress { background-color: #007bff; color: white; }
+        .status-closed { background-color: #28a745; color: white; }
+        .status-open, .status-in-progress, .status-closed { padding: 4px 8px; border-radius: 4px; font-size: 0.9em; font-weight: bold; display: inline-block; }
+        .priority-high { color: #dc3545; font-weight: bold; }
+        .priority-medium { color: #ffc107; font-weight: bold; }
+        .priority-low { color: #28a745; font-weight: bold; }
+
+        /* Editing/Action Buttons */
+        .edit-btn, .save-btn, .cancel-btn, .delete-btn { padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; margin-right: 5px; }
+        .edit-btn { background-color: #17a2b8; color: white; }
+        .save-btn { background-color: #28a745; color: white; display: none; }
+        .cancel-btn { background-color: #dc3545; color: white; display: none; margin-right: 5px; }
+        .delete-btn { background-color: #ff5555; color: white; }
+        
+        /* Attachment Cell Styling */
+        .attachment-note { font-size: 0.75em; color: #6c757d; display: block; margin-top: 5px; }
+        .attachment-link { font-weight: bold; }
+        .attachment-preview { 
+            max-width: 100px; 
+            max-height: 100px; 
+            object-fit: contain; 
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        /* Specific column width adjustment for mobile display */
+        @media screen and (max-width: 768px) {
+            .issue-table td[data-label="Reporter"] {
+                word-break: break-all;
+                text-align: right;
+            }
+
+            .filter-panel {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-action-group {
+                flex-direction: column;
+                gap: 5px;
+            }
+            .filter-action-group button {
+                width: 100%;
+            }
+        }
+
+        /* ======================================= */
+        /* --- RESPONSIVE STYLES (Mobile View) --- */
+        /* ======================================= */
+        @media screen and (max-width: 768px) {
+            
+            .report-container { padding: 10px; margin: 0; width: auto; }
+            .form-row { flex-direction: column; gap: 5px; }
+            
+            /* Table Simplification */
+            .issue-table, .issue-table thead, .issue-table tbody, .issue-table th, .issue-table td, .issue-table tr { display: block; }
+            .issue-table thead tr { position: absolute; top: -9999px; left: -9999px; }
+            .issue-table tr { border: 1px solid #ccc; margin-bottom: 10px; background: #fff; padding: 10px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); }
+            .issue-table td { border: none; border-bottom: 1px solid #eee; position: relative; padding-left: 50%; text-align: right; font-size: 0.9em; }
+            
+            .issue-table td:before { 
+                content: attr(data-label);
+                position: absolute;
+                left: 10px;
+                width: 45%; 
+                padding-right: 10px;
+                white-space: nowrap;
+                text-align: left;
+                font-weight: bold;
+                color: #555;
+            }
+            .issue-table td:last-child {
+                text-align: center;
+                border-bottom: none;
+                padding-top: 15px;
+            }
+
+            .attachment-preview {
+                max-width: 80%;
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingMessage" class="loading-overlay">
+        Initializing app and connecting to database...
+    </div>
+
+    <!-- Custom Confirmation Dialog (Replaces native confirm/alert) -->
+    <div id="customConfirmOverlay" class="custom-confirm-overlay">
+        <div class="custom-confirm-box">
+            <p id="confirmMessage">Are you sure?</p>
+            <button id="confirmYes">Yes, Delete</button>
+            <button id="confirmNo">Cancel</button>
+        </div>
+    </div>
+    <!-- End Custom Confirmation Dialog -->
+
+<div class="report-container" style="display:none;" id="mainContent">
+    <h1>Issue Tracking Report - System Migration</h1>
+    <p><strong>Report Date:</strong> <span id="currentDate"></span></p>
+
+    <!-- --- Utility Bar with User Info and Export --- -->
+    <div class="utility-bar">
+        <div class="user-info">
+            Authenticated User ID: <strong id="currentUserId">Loading...</strong>
+        </div>
+        <button class="export-btn" onclick="exportTableToCSV()">⬇️ Export to Excel (CSV)</button>
+    </div>
+
+    <!-- --- New Issue Logging Form --- -->
+    <div class="log-form">
+        <h2>📝 Log New Issue</h2>
+        <div class="storage-warning">
+            ⚠️ **Storage Warning:** Images are stored directly in the Firestore document (max 1MB per document). Please only use **small screenshots or thumbnails** to prevent saving failures.
+        </div>
+        <form id="newIssueForm">
+            
+            <!-- Row 1: Summary and Module -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="summary">Issue Summary (Brief)</label>
+                    <textarea id="summary" required></textarea> 
+                </div>
+                <div class="form-group">
+                    <label for="module">Module/Screen (Required)</label>
+                    <input type="text" id="module" required>
+                </div>
+            </div>
+
+            <!-- Row 2: Large IT Report Field -->
+            <div class="form-row">
+                <div class="form-group" style="flex: 2;">
+                    <label for="itReport">IT Report (Detailed Description, up to 200 sentences)</label>
+                    <textarea id="itReport" required>IT report</textarea> <!-- DEFAULT TEXT ADDED HERE -->
+                </div>
+            </div>
+            
+            <!-- Row 3: Assignment and Status Fields -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="assigned">Assigned To</label>
+                    <input type="text" id="assigned" value="TBD">
+                </div>
+                <div class="form-group">
+                    <label for="priority">Priority</label>
+                    <select id="priority">
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status">
+                        <option value="Open" selected>Open</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Row 4: Attachment and Due Date -->
+            <div class="form-row">
+                <div class="form-group file-upload-group">
+                    <label for="attachment">Attach Image (Will be stored in DB)</label>
+                    <input type="file" id="attachment" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label for="dueDate">Due Date</label>
+                    <input type="date" id="dueDate">
+                </div>
+            </div>
+            
+            <button type="submit">Add Issue to Report</button>
+        </form>
+    </div>
+    <!-- --- End New Issue Logging Form --- -->
+    
+    <!-- --- Filter Panel --- -->
+    <div class="filter-panel">
+        <label>Filter Issues by Reporter:</label>
+        <div class="filter-action-group">
+            <!-- setReporterFilter(null) clears the filter -->
+            <button id="showAllButton" onclick="setReporterFilter(null)">Show All Issues</button>
+            <!-- setReporterFilter(userId) filters by the current user -->
+            <button id="showMineButton" onclick="setReporterFilter(userId)">My Issues Only</button>
+        </div>
+        
+        <label for="specificReporterId">Or search for ID:</label>
+        <input type="text" id="specificReporterId" placeholder="Enter specific User ID...">
+        <button id="filterByReporter" onclick="setReporterFilter(document.getElementById('specificReporterId').value)">Filter by ID</button>
+    </div>
+    <!-- --- End Filter Panel --- -->
+
+    <!-- --- Issue Table --- -->
+    <table class="issue-table" id="issueTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Issue Summary</th>
+                <th>IT Report</th> <!-- COLUMN INTACT -->
+                <th>Module/Screen</th>
+                <th>Reporter</th>
+                <th>Assigned To</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Report Date</th>
+                <th>Due Date</th>
+                <th>Attachment</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Issues loaded from Firebase will appear here -->
+        </tbody>
+    </table>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    setLogLevel('Debug');
+
+    let db;
+    let auth;
+    let userId = null;
+    let issueCounter = 0;
+    
+    // State to track the current filter
+    let currentReporterFilter = null; // null means show all
+
+    // Global variables provided by the environment
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    // Set current date
+    document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    
+    // --- FIREBASE INITIALIZATION AND AUTHENTICATION ---
+    
+    try {
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+
+        // Try to sign in with custom token, fallback to anonymous sign-in
+        if (initialAuthToken) {
+            await setPersistence(auth, browserSessionPersistence);
+            await signInWithCustomToken(auth, initialAuthToken);
+        } else {
+            await setPersistence(auth, browserSessionPersistence);
+            await signInAnonymously(auth);
+        }
+        
+    } catch (e) {
+        console.error("Firebase initialization or sign-in failed:", e);
+        document.getElementById('loadingMessage').textContent = "Error initializing Firebase. Check console for details.";
+    }
+
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            userId = user.uid;
+            document.getElementById('currentUserId').textContent = userId;
+            document.getElementById('loadingMessage').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            
+            // Start listening to issues once authenticated (initial listen is 'show all' by default)
+            listenForIssues();
+        } else {
+             // Fallback for unauthenticated state (should not happen in Canvas)
+            userId = 'anon-' + (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9));
+            document.getElementById('currentUserId').textContent = userId;
+            document.getElementById('loadingMessage').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            console.warn("Signed in anonymously or using fallback ID.");
+            listenForIssues();
+        }
+    });
+
+    function getCollectionRef() {
+        if (!db || !userId) {
+            console.error("Database or User ID not ready.");
+            return null;
+        }
+        // Private data path: /artifacts/{appId}/users/{userId}/issues
+        return collection(db, `artifacts/${appId}/users/${userId}/issues`);
+    }
+    
+    // Global variable for the unsubscribe function to prevent multiple listeners
+    let unsubscribe = null; 
+
+    // --- FILTER HANDLER ---
+    window.setReporterFilter = function(reporterId) {
+        // Use a conditional check to ensure userId is available if 'My Issues' is clicked
+        let filterValue;
+        if (reporterId === 'userId' && userId) {
+            filterValue = userId;
+        } else {
+            // Trim the ID if it's a string from the input box
+            filterValue = (typeof reporterId === 'string' && reporterId.trim() !== '') ? reporterId.trim() : null;
+        }
+        
+        // If the filter is explicitly set to null (Show All), also clear the text input
+        if (filterValue === null) {
+            document.getElementById('specificReporterId').value = '';
+        }
+
+        // Only update if the filter is changing
+        if (currentReporterFilter !== filterValue) {
+            currentReporterFilter = filterValue;
+            console.log("Applying new filter:", currentReporterFilter || "Show All");
+            listenForIssues(); // Rerun the listener with the new filter
+        }
+    }
+
+
+    // --- REAL-TIME DATA LISTENER ---
+    function listenForIssues() {
+        const issuesCollectionRef = getCollectionRef();
+        if (!issuesCollectionRef) return;
+
+        // 1. Unsubscribe from the previous listener if it exists
+        if (unsubscribe) {
+            unsubscribe();
+        }
+
+        // 2. Build the query based on the current filter state
+        let issuesQuery;
+        if (currentReporterFilter) {
+            // Filter by the selected reporterId
+            issuesQuery = query(issuesCollectionRef, where("reporterId", "==", currentReporterFilter));
+        } else {
+            // No filter applied (Show All)
+            issuesQuery = query(issuesCollectionRef);
+        }
+
+
+        // 3. Subscribe to the new query
+        unsubscribe = onSnapshot(issuesQuery, (snapshot) => {
+            const tableBody = document.querySelector('#issueTable tbody');
+            tableBody.innerHTML = ''; // Clear existing rows
+            
+            let maxId = 0;
+            
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const docId = doc.id;
+                
+                // Determine next sequential ID based on loaded data
+                const match = data.issueId.match(/ISS-(\d+)/);
+                if (match) {
+                    // Update maxId based on the sequential ID
+                    maxId = Math.max(maxId, parseInt(match[1], 10));
+                }
+
+                // Add row to the table
+                addRowToTable(docId, data);
+            });
+            
+            // NOTE: We update maxId based on the sequential ID found
+            issueCounter = maxId;
+            
+            if (currentReporterFilter === null) {
+                console.log(`Loaded ${snapshot.size} issues (All). Next ID counter set to: ${issueCounter + 1}`);
+            } else {
+                console.log(`Loaded ${snapshot.size} issues (Filtered by Reporter: ${currentReporterFilter}).`);
+            }
+
+        }, (error) => {
+            console.error("Error listening to issues:", error);
+            document.querySelector('#issueTable tbody').innerHTML = '<tr><td colspan="12" style="text-align:center; color: red;">Error loading issues.</td></tr>';
+        });
+    }
+
+    // --- HELPER FUNCTION TO ADD/UPDATE ROW ---
+    function addRowToTable(docId, data) {
+        const tableBody = document.querySelector('#issueTable tbody');
+        
+        let existingRow = tableBody.querySelector(`tr[data-doc-id="${docId}"]`);
+        if (existingRow) {
+            existingRow.remove();
+        }
+
+        const newRow = tableBody.insertRow();
+        newRow.dataset.docId = docId;
+        newRow.dataset.id = data.issueId; // Sequential ID
+        
+        const priorityClass = `priority-${data.priority.toLowerCase()}`;
+        const statusClass = `status-${data.status.toLowerCase().replace(' ', '-')}`;
+        
+        // Display summary text, converting stored newlines to HTML breaks
+        const summaryDisplay = (data.summary || '').replace(/\n/g, '<br>');
+        const itReportDisplay = (data.itReport || '').replace(/\n/g, '<br>');
+
+        let attachmentHTML = '';
+
+        if (data.attachmentData) {
+            // Display the persistently stored Base64 image
+            attachmentHTML = `
+                <a href="${data.attachmentData}" target="_blank" title="Click to view full image">
+                    <img src="${data.attachmentData}" alt="${data.attachmentFilename || 'Attached image'}" class="attachment-preview" loading="lazy">
+                </a>
+                <span class="attachment-note">${data.attachmentFilename || 'Image attached'}</span>
+            `;
+        } else if (data.attachmentFilename) {
+            // Fallback for cases where only the filename was logged previously
+             attachmentHTML = `
+                <span class="attachment-link">📁 ${data.attachmentFilename}</span>
+                <span class="attachment-note">(Image data missing or too large)</span>
+            `;
+        }
+        
+        newRow.innerHTML = `
+            <td data-label="ID">${data.issueId}</td>
+            <td data-label="Summary" data-field="summary">${summaryDisplay}</td>
+            <td data-label="IT Report" data-field="itReport">${itReportDisplay}</td> <!-- NEW FIELD DISPLAY -->
+            <td data-label="Module/Screen" data-field="module">${data.module}</td>
+            <td data-label="Reporter">${data.reporterId}</td>
+            <td data-label="Assigned To" data-field="assigned">${data.assigned}</td>
+            <td data-label="Priority" data-field="priority" class="${priorityClass}">${data.priority}</td>
+            <td data-label="Status" data-field="status"><span class="${statusClass}">${data.status}</span></td>
+            <td data-label="Report Date" data-field="reported">${data.reportDate}</td>
+            <td data-label="Due Date" data-field="due">${data.dueDate}</td>
+            <td data-label="Attachment">${attachmentHTML}</td>
+            <td data-label="Actions">
+                <button class="edit-btn" onclick="makeRowEditable(this)">Edit</button>
+                <button class="delete-btn" onclick="deleteIssue(this)">Delete</button>
+                <button class="save-btn" onclick="saveRow(this)">Save</button>
+                <button class="cancel-btn" onclick="cancelEdit(this)">Cancel</button>
+            </td>
+        `;
+    }
+
+    // --- CUSTOM CONFIRMATION FUNCTIONS (Replaces alert/confirm) ---
+
+    let currentConfirmCallback = null;
+    const confirmOverlay = document.getElementById('customConfirmOverlay');
+    const confirmMessage = document.getElementById('confirmMessage');
+    const confirmYes = document.getElementById('confirmYes');
+    const confirmNo = document.getElementById('confirmNo');
+
+    function showCustomConfirm(message, onConfirm) {
+        confirmMessage.textContent = message;
+        currentConfirmCallback = onConfirm;
+        confirmOverlay.classList.add('show');
+    }
+
+    function hideCustomConfirm() {
+        confirmOverlay.classList.remove('show');
+        currentConfirmCallback = null;
+    }
+
+    confirmYes.onclick = () => {
+        if (currentConfirmCallback) {
+            currentConfirmCallback();
+        }
+        hideCustomConfirm();
+    };
+
+    confirmNo.onclick = hideCustomConfirm;
+    
+    // --- FILE CONVERSION UTILITY ---
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // --- ISSUE LOGGING (CREATE) ---
+    document.getElementById('newIssueForm').addEventListener('submit', function(e) {
+        e.preventDefault(); 
+        addNewIssue();
+    });
+
+    async function addNewIssue() {
+        if (!userId) {
+            console.error("User not authenticated. Cannot add issue.");
+            showCustomConfirm("Error: App is not ready to save data yet. Please wait for initialization.", hideCustomConfirm);
+            return;
+        }
+
+        // We use the local counter value here
+        const nextIssueNumber = issueCounter + 1;
+        const newIssueId = 'ISS-' + String(nextIssueNumber).padStart(3, '0');
+        
+        const summary = document.getElementById('summary').value;
+        const itReport = document.getElementById('itReport').value; // NEW FIELD
+        const module = document.getElementById('module').value;
+        const assigned = document.getElementById('assigned').value || 'Unassigned';
+        const priority = document.getElementById('priority').value;
+        const status = document.getElementById('status').value;
+        const dueDate = document.getElementById('dueDate').value;
+        const reportDate = new Date().toISOString().slice(0, 10);
+        
+        const fileInput = document.getElementById('attachment');
+        let file = fileInput.files[0];
+        let attachmentFilename = '';
+        let attachmentData = null;
+
+        // 1. Handle File Attachment
+        if (file) {
+            attachmentFilename = file.name;
+            try {
+                 // Convert file to Base64 data string
+                attachmentData = await fileToBase64(file);
+                // Check if the resulting Base64 string might exceed the 1MB limit
+                if (attachmentData.length > 800000) { // Rough check, Base64 is ~33% larger than binary
+                     console.warn("Attachment size is large (potential size > 800KB). Document save may fail.");
+                }
+            } catch(e) {
+                console.error("Error reading file:", e);
+                attachmentData = null;
+                showCustomConfirm("Error reading file. Please try a different image.", hideCustomConfirm);
+                return;
+            }
+        }
+
+        const issueData = {
+            issueId: newIssueId, // Save the sequential ID
+            summary: summary,
+            itReport: itReport, // NEW FIELD
+            module: module,
+            reporterId: userId, // CRITICAL: The ID of the user who logged the issue
+            assigned: assigned,
+            priority: priority,
+            status: status,
+            dueDate: dueDate,
+            reportDate: reportDate,
+            attachmentFilename: attachmentFilename, // Name (persistent)
+            attachmentData: attachmentData // Base64 data (persistent, but limited size)
+        };
+
+        // 2. Save to Firestore
+        try {
+            await addDoc(getCollectionRef(), issueData);
+            
+            // 3. Clear form and increment counter
+            document.getElementById('newIssueForm').reset(); 
+            // Re-set default values for selects/inputs not cleared by reset()
+            document.getElementById('assigned').value = 'TBD';
+            document.getElementById('priority').value = 'Medium';
+            document.getElementById('status').value = 'Open';
+            // Re-set the default text for the IT Report
+            document.getElementById('itReport').value = 'IT report';
+            
+            issueCounter++; 
+            console.log(`Issue ${newIssueId} successfully logged and saved to Firebase! Reporter: ${userId}`);
+        } catch (e) {
+            console.error("Error adding document: ", e);
+            // Inform user if save fails due to size (most common Base64 error)
+            showCustomConfirm("Failed to save issue. If an image was attached, it might be too large (max 1MB per document).", hideCustomConfirm);
+        }
+    }
+
+    // --- ISSUE DELETION (DELETE) ---
+    window.deleteIssue = function(button) {
+        const row = button.closest('tr');
+        const docId = row.dataset.docId;
+        const issueId = row.dataset.id;
+        
+        showCustomConfirm(`Are you sure you want to delete Issue ${issueId}? This action cannot be undone.`, async () => {
+            try {
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/issues`, docId);
+                await deleteDoc(docRef);
+                console.log(`Issue ${issueId} deleted successfully.`);
+            } catch (e) {
+                console.error("Error deleting document:", e);
+                showCustomConfirm(`Failed to delete Issue ${issueId} from the database.`, hideCustomConfirm);
+            }
+        });
+    }
+
+
+    // --- ISSUE EDITING (UPDATE) ---
+    let originalRowData = {};
+
+    window.makeRowEditable = function(button) {
+        const row = button.closest('tr');
+        const docId = row.dataset.docId;
+        
+        originalRowData[docId] = {};
+
+        // Select all editable fields (Reporter and Attachment columns are skipped)
+        const editableFields = row.querySelectorAll('td[data-field]');
+        
+        editableFields.forEach(cell => {
+            const field = cell.dataset.field;
+            // Get original value, replacing <br> tags with actual newlines for the textarea
+            const originalValue = cell.innerHTML.replace(/<br>/g, '\n').replace(/<[^>]*>?/gm, '').trim(); 
+            originalRowData[docId][field] = originalValue; 
+
+            cell.innerHTML = '';
+            
+            let inputElement;
+
+            if (field === 'summary' || field === 'itReport') { // INCLUDE NEW FIELD
+                inputElement = document.createElement('textarea');
+                inputElement.value = originalValue;
+                // Add specific height to the edit textarea for the report
+                if (field === 'itReport') {
+                    inputElement.style.minHeight = '200px'; 
+                }
+            } else if (field === 'priority') {
+                inputElement = createSelect('priority', originalValue, ['High', 'Medium', 'Low']);
+            } else if (field === 'status') {
+                inputElement = createSelect('status', originalValue, ['Open', 'In Progress', 'Closed']);
+            } else if (field === 'due' || field === 'reported') {
+                inputElement = document.createElement('input');
+                inputElement.type = 'date';
+                inputElement.value = originalValue;
+            }
+            else {
+                inputElement = document.createElement('input');
+                inputElement.type = 'text';
+                inputElement.value = originalValue;
+            }
+            
+            inputElement.style.width = '100%';
+            inputElement.name = field;
+            cell.appendChild(inputElement);
+        });
+
+        button.style.display = 'none'; 
+        row.querySelector('.delete-btn').style.display = 'none';
+        row.querySelector('.save-btn').style.display = 'inline-block'; 
+        row.querySelector('.cancel-btn').style.display = 'inline-block'; 
+    }
+
+    function createSelect(name, selectedValue, options) {
+        const select = document.createElement('select');
+        select.name = name;
+        options.forEach(optionText => {
+            const option = document.createElement('option');
+            option.value = optionText;
+            option.textContent = optionText;
+            if (optionText === selectedValue) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+        return select;
+    }
+
+    window.saveRow = async function(button) {
+        const row = button.closest('tr');
+        const docId = row.dataset.docId;
+        const issueId = row.dataset.id;
+        
+        const updateData = {};
+        let needsUpdate = false;
+        
+        // Select all editable fields (Reporter and Attachment columns are skipped)
+        const editableFields = row.querySelectorAll('td[data-field]');
+        
+        editableFields.forEach(cell => {
+            const field = cell.dataset.field;
+            const inputElement = cell.querySelector('input, select, textarea');
+            
+            if (inputElement) {
+                let newValue = inputElement.value;
+                
+                // Compare with original data to see if an update is needed
+                if (originalRowData[docId] && originalRowData[docId][field] !== newValue) {
+                    needsUpdate = true;
+                    // IMPORTANT: The update data keys must match the Firestore document fields
+                    // The data-field attribute is used as the key: 'summary', 'itReport', 'module', etc.
+                    updateData[field] = newValue;
+                }
+
+                // Clean up cell for display (real update happens via Firestore listener)
+                if (field === 'summary' || field === 'itReport') {
+                    cell.innerHTML = newValue.replace(/\n/g, '<br>');
+                } else {
+                    cell.textContent = newValue;
+                }
+            }
+        });
+        
+        if (needsUpdate) {
+            try {
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/issues`, docId);
+                await updateDoc(docRef, updateData);
+                console.log(`Issue ${issueId} updated successfully. Fields updated: ${Object.keys(updateData).join(', ')}`);
+            } catch (e) {
+                console.error("Error updating document:", e);
+                showCustomConfirm(`Failed to update Issue ${issueId} in the database.`, hideCustomConfirm);
+            }
+        }
+        
+        // Restore buttons (this is temporary until onSnapshot re-renders the row)
+        button.style.display = 'none'; 
+        row.querySelector('.cancel-btn').style.display = 'none';
+        row.querySelector('.edit-btn').style.display = 'inline-block';
+        row.querySelector('.delete-btn').style.display = 'inline-block';
+
+        delete originalRowData[docId];
+    }
+
+    window.cancelEdit = function(button) {
+        const row = button.closest('tr');
+        const docId = row.dataset.docId;
+        const originalData = originalRowData[docId];
+
+        if (originalData) {
+            const editableFields = row.querySelectorAll('td[data-field]');
+            editableFields.forEach(cell => {
+                const field = cell.dataset.field;
+                const originalValue = originalData[field];
+
+                if (field === 'summary' || field === 'itReport') {
+                    cell.innerHTML = originalValue.replace(/\n/g, '<br>');
+                } else {
+                    cell.textContent = originalValue;
+                }
+                
+                if (field === 'priority') {
+                    cell.className = '';
+                    cell.classList.add(`priority-${originalValue.toLowerCase()}`);
+                } else if (field === 'status') {
+                    cell.className = '';
+                    cell.innerHTML = `<span class="status-${originalValue.toLowerCase().replace(' ', '-')}">${originalValue}</span>`;
+                }
+            });
+        }
+        
+        button.style.display = 'none';
+        row.querySelector('.save-btn').style.display = 'none';
+        row.querySelector('.edit-btn').style.display = 'inline-block';
+        row.querySelector('.delete-btn').style.display = 'inline-block';
+
+        delete originalRowData[docId];
+    }
+
+    // --- EXPORT FUNCTION ---
+    window.exportTableToCSV = function() {
+        const table = document.getElementById('issueTable');
+        let csv = [];
+        
+        // 1. Get Headers - skip Actions and simplify Attachment column
+        const headerRow = table.querySelector('thead tr');
+        let headers = Array.from(headerRow.querySelectorAll('th:not(:last-child)'));
+        
+        // Filter out or rename the Attachment header for CSV clarity
+        headers = headers.map(th => {
+            if (th.textContent.trim() === 'Attachment') {
+                return '"Attachment Filename"';
+            }
+            return `"${th.textContent.trim().replace(/"/g, '""')}"`;
+        });
+        csv.push(headers.join(','));
+
+        // 2. Get Data Rows
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            let rowData = [];
+            // Select all data cells except the last one (Actions)
+            // We rely on the order in the HTML, so we just iterate over cells that have a data-label
+            const cells = row.querySelectorAll('td[data-label]:not([data-label="Actions"])');
+            
+            cells.forEach(cell => {
+                let text = cell.textContent.trim();
+                
+                if (cell.dataset.label === "Attachment") {
+                    // Find the filename within the attachment cell content
+                    const fileNameElement = cell.querySelector('.attachment-note');
+                    text = fileNameElement ? fileNameElement.textContent.trim() : '';
+                    // Clean up parentheses from the note for CSV
+                    text = text.replace('(Image attached)', '').trim();
+                }
+
+                // Replace internal newlines/HTML line breaks with spaces for CSV formatting
+                text = text.replace(/\n/g, ' ').replace(/<br>/g, ' '); 
+                rowData.push(`"${text.replace(/"/g, '""')}"`);
+            });
+            csv.push(rowData.join(','));
+        });
+
+        // 3. Create Blob and Download Link
+        let csvFile = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        let link = document.createElement("a");
+        link.download = 'Issue_Tracking_Report_' + new Date().toISOString().slice(0, 10) + '.csv';
+        link.href = window.URL.createObjectURL(csvFile);
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+</script>
+
+</body>
+</html>
